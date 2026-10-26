@@ -129,18 +129,35 @@ var DURS=[4,5,6,8,10,15],SHOTS=["Oto",1,2,3,4],COUNTS=[1,2,3];
 var CAMS=[["Oto",""],["Push In","Push In"],["Pull Out","Pull Out"],["Pan","Pan Left or Right"],["Tracking","Tracking Shot"],["Arc","Arc Shot"],["Static","Static Shot"],["El kamerası","Shake Slightly (handheld feel)"],["POV","POV"]];
 var DLG=[["Yok",""],["English","English"],["Türkçe","Turkish"]];
 var MUS=["Müzik var","Müziksiz (N/A)"];
-var STY=[["Yok",""],
-["Sinematik","Live-action, cinematic, anamorphic lens, shallow depth of field, teal and orange grade, fine film grain."],
-["Dokümanter","Live-action documentary, handheld camera, available natural light, candid unposed feel."],
-["Altın saat","Live-action, golden hour, low warm sun, long shadows, glowing rim light, soft lens flare."],
-["Neon noir","Live-action neon-noir city, rain-soaked streets, neon reflections, drifting fog, cyan and magenta glow."],
-["Analog / VHS","Vintage film and VHS look, soft grain, faded colors, light leaks, slight tracking noise."],
-["Moda editoryal","Live-action high-fashion editorial, crisp studio lighting, glossy polished finish, bold confident movement."],
-["Ürün reklamı","Live-action luxury commercial, dark glossy surface, sharp rim lighting, specular highlights, slow premium motion."],
-["2D anime","2D-animated anime, hand-painted soft backgrounds, warm gentle light, lush nature."],
-["3D CG","3D CG animated film look, rounded appealing shapes, soft global illumination, vibrant colors, expressive characters."],
-["Claymation","Claymation stop-motion look, visible fingerprints in clay, handmade miniature sets, slightly jerky frame rate."],
-["Suluboya","Watercolor animation, fluid translucent washes, soft bleeding edges, visible paper texture."]];
+var RULES={
+R:"Adult subjects only. Clean natural skin, no tattoos anywhere. Realistic skin texture and natural motion. No on-screen text unless requested.",
+A:"Adult characters only. No tattoos. Clean cel-shaded skin with simple anime facial features, no photographic pores. Keep character design, line weight and palette consistent in every shot. No on-screen text unless requested.",
+D:"Adult characters only. No tattoos. Smooth stylized skin and rounded appealing shapes, no photographic realism. Keep the character model, proportions and materials consistent in every shot. No on-screen text unless requested.",
+C:"Adult characters only. No tattoos. Visible clay texture, fingerprints and handmade imperfections, slightly low stop-motion frame rate, no photographic skin. Keep the puppets and miniature sets consistent in every shot. No on-screen text unless requested.",
+W:"Adult characters only. No tattoos. Painted look with soft edges and visible paper or canvas texture, no photographic detail. Keep palette and brush style consistent in every shot. No on-screen text unless requested.",
+P:"Adult characters only. No tattoos. Flat graphic rendering with bold shapes and a limited palette, no photographic skin. Keep the character design and palette consistent in every shot. No on-screen text unless requested."};
+var dirty=false;
+var STY=[["Yok","","R"],
+["Sinematik","Live-action, cinematic, anamorphic lens, shallow depth of field, teal and orange grade, fine film grain.","R"],
+["Dokümanter","Live-action documentary, handheld camera, available natural light, candid unposed feel.","R"],
+["Altın saat","Live-action, golden hour, low warm sun, long shadows, glowing rim light, soft lens flare.","R"],
+["Neon noir","Live-action neon-noir city, rain-soaked streets, neon reflections, drifting fog, cyan and magenta glow.","R"],
+["Analog / VHS","Vintage film and VHS look, soft grain, faded colors, light leaks, slight tracking noise.","R"],
+["Moda editoryal","Live-action high-fashion editorial, crisp studio lighting, glossy polished finish, bold confident movement.","R"],
+["Ürün reklamı","Live-action luxury commercial, dark glossy surface, sharp rim lighting, specular highlights, slow premium motion.","R"],
+["Film noir","Live-action film noir, black and white, hard chiaroscuro lighting, venetian blind shadows, smoky haze, 1940s mood.","R"],
+["Wes Anderson","Live-action, Wes Anderson-inspired look: perfectly symmetrical centered framing, flat staging, pastel palette of pink, mint and mustard, whimsical retro set design.","R"],
+["Gotik fantastik","Live-action dark gothic fantasy: heavy mist, dim moody light, ornate architecture, muted desaturated palette with deep crimson accents.","R"],
+["80’ler synthwave","Live-action 1980s synthwave: neon magenta and cyan, chrome, grid horizon, VHS grain.","R"],
+["2D anime","2D-animated anime, hand-painted soft backgrounds, warm gentle light, lush nature.","A"],
+["Ghibli","2D-animated Studio Ghibli-inspired anime: hand-painted soft backgrounds, warm gentle light, lush nature, whimsical nostalgic mood.","A"],
+["Shinkai","2D-animated Makoto Shinkai-inspired anime: luminous detailed skies with dramatic clouds, sparkling light rays and lens glow, saturated blue and orange gradients, emotional cinematic atmosphere.","A"],
+["3D CG","3D CG animated film look, rounded appealing shapes, soft global illumination, vibrant colors, expressive characters.","D"],
+["Claymation","Claymation stop-motion look, handmade miniature sets, soft studio light, tactile textures.","C"],
+["Suluboya","Watercolor animation, fluid translucent washes, soft bleeding edges, visible paper texture.","W"],
+["Yağlıboya","Oil-painting animation, visible brushstrokes, Rembrandt lighting, rich pigments, canvas texture.","W"],
+["Comic / pop art","Comic book pop-art animation: bold black outlines, halftone dots, flat vivid primary colors, dynamic composition.","P"],
+["Pixel art","Pixel art animation, limited color palette, crisp square pixels, 16-bit game look.","P"]];
 var TT=["reference generation","keyframe completion","video editing","video continuation","audio reuse","audio reference"];
 var QUICK=["Kamera hareketini zenginleştir","Daha kısa yaz","Daha detaylı yaz","Müziği kaldır (N/A yap)","Ses ortamını güçlendir"];
 var st={mo:0,k:0,d:3,sh:0,sy:0,cm:0,dl:1,mu:0,c:0},tsel={};
@@ -163,7 +180,17 @@ chips("modes",MODES,"mo",function(x){return x},upd);
 chips("kinds",KINDS,"k",function(x){return x[1]},upd);
 chips("durs",DURS,"d",function(x){return x+" sn"});
 chips("shots",SHOTS,"sh",function(x){return x});
-chips("styles",STY,"sy",function(x){return x[0]});
+chips("styles",STY,"sy",function(x){return x[0]},function(i){if(!dirty)$("fixed").value=RULES[STY[i][2]]});
+$("fixed").value=RULES.R;$("fixed").addEventListener("input",function(){dirty=true});
+(function(){
+  var r=mk("div","row");r.style.marginTop="8px";
+  [["Stil kuralını yükle",0],["Boş",1]].forEach(function(x){
+    var b=mk("button","chip q",x[0]);
+    b.onclick=function(){$("fixed").value=x[1]?"":RULES[STY[st.sy][2]];dirty=!!x[1]};
+    r.appendChild(b);
+  });
+  $("fixed").parentNode.insertBefore(r,$("fixed").nextSibling);
+})();
 chips("cams",CAMS,"cm",function(x){return x[0]});
 chips("dlg",DLG,"dl",function(x){return x[0]});
 chips("mus",MUS,"mu",function(x){return x});
@@ -442,6 +469,7 @@ go.onclick=async function(){
     "\n\nVideo duration: "+dur.toFixed(2)+" seconds (all cut times must be before "+dur+" s)."+
     "\nShots: "+(typeof ns==="number"?"exactly "+ns:one?"exactly 1":"choose what fits the duration")+"."+
     (sty[1]?"\nStyle to apply: "+sty[1]:"")+
+    (sty[2]!=="R"?"\nIMPORTANT: this is NOT live-action. Describe everything in the chosen medium (animated, drawn, painted or clay) and open Shot 1 with that medium instead of 'Live-action'. Do not use the words live-action, photorealistic, photograph or real skin pores; camera moves stay as a virtual camera.":"")+
     (cam?"\nPreferred camera motion: "+cam+".":"")+
     "\nDialogue: "+(dl?"include spoken lines in "+dl+" using <d>["+dl+"] ...</d>; lines the user wrote in quotes must be kept verbatim.":"none; no speakers, no (Sx).")+
     "\nnon_diegetic_music: "+(st.mu===1?"write N/A.":"write a fitting score.")+
