@@ -63,16 +63,22 @@ textarea.sm{min-height:60px}
 <div class="row" id="rb" style="margin-top:8px"></div>
 <div class="lb">Görev tipi (boşsa otomatik seçilir)</div><div class="row" id="tt"></div>
 </div>
-<label for="idea">Fikir (tek cümle yeterli, Türkçe olabilir)</label>
+<label for="idea" id="idl">Fikir (tek cümle yeterli, Türkçe olabilir)</label>
 <textarea id="idea" placeholder="örn. yağmurlu bir istasyonda mektubu katlayan kadın, son replik: “Bir sonraki durakta iniyorum.”"></textarea>
-<label for="sp">Shot planı (isteğe bağlı, her satır bir shot)</label>
+<button class="chip q" id="im3" style="margin-top:8px">📷 Görselden tanım doldur</button>
+<label for="sp" id="spl">Shot planı (isteğe bağlı, her satır bir shot)</label>
 <textarea id="sp" class="sm" placeholder="örn. geniş plan, kadın peronda bekler&#10;yakın plan, mektubu katlar, “Bir sonraki durakta iniyorum.”"></textarea>
 <div class="lb">Karakterler (dokun: prompta ekle)</div><div class="row" id="chs"></div>
 <input type="text" id="cn" placeholder="Karakter adı" style="margin-top:8px">
 <textarea id="cd" class="sm" placeholder="Görünüm ve ses: yaş, saç, kıyafet, ses tonu" style="margin-top:8px"></textarea>
 <div class="row" style="margin-top:8px"><button class="btn" id="csv">Karakteri kaydet</button><button class="btn" id="cdl">Seçilileri sil</button></div>
-<div class="lb">Süre</div><div class="row" id="durs"></div>
-<div class="lb">Shot sayısı</div><div class="row" id="shots"></div>
+<div class="lb" id="dul">Süre</div><div class="row" id="durs"></div>
+<div class="lb" id="shl">Shot sayısı</div><div class="row" id="shots"></div>
+<div id="qw">
+<div class="lb">Klip süresi (plana satır başına “6 sn: …” yazarak klip klip de belirleyebilirsin)</div><div class="row" id="qdur"></div>
+<div class="lb">Süre bilgisi</div><div class="row" id="qtx"></div>
+<label for="qs">Her klibin sonuna eklenen cümle (isteğe bağlı)</label><input type="text" id="qs" value="Vertical 9:16.">
+</div>
 <div class="lb">Stil</div><div class="row" id="styles"></div>
 <div class="lb">Kamera eğilimi</div><div class="row" id="cams"></div>
 <div class="lb">Diyalog</div><div class="row" id="dlg"></div>
@@ -123,7 +129,7 @@ function jset(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 var cfg=jget(CK,{p:0,keys:{},models:{}});cfg.keys=cfg.keys||{};cfg.models=cfg.models||{};
 var hist=jget(HK,[]);if(!Array.isArray(hist))hist=[];
 
-var MODES=["Base","Referans"];
+var MODES=["Base","Referans","Kuyruk"];
 var KINDS=[["T2VA","T2VA · metinden"],["I2VA","I2VA · ilk kare"],["FL2VA","FL2VA · ilk + son kare"],["L2VA","L2VA · son kare"]];
 var DURS=[4,5,6,8,10,15],SHOTS=["Oto",1,2,3,4],COUNTS=[1,2,3];
 var CAMS=[["Oto",""],["Push In","Push In"],["Pull Out","Pull Out"],["Pan","Pan Left or Right"],["Tracking","Tracking Shot"],["Arc","Arc Shot"],["Static","Static Shot"],["El kamerası","Shake Slightly (handheld feel)"],["POV","POV"]];
@@ -160,7 +166,8 @@ var STY=[["Yok","","R"],
 ["Pixel art","Pixel art animation, limited color palette, crisp square pixels, 16-bit game look.","P"]];
 var TT=["reference generation","keyframe completion","video editing","video continuation","audio reuse","audio reference"];
 var QUICK=["Kamera hareketini zenginleştir","Daha kısa yaz","Daha detaylı yaz","Müziği kaldır (N/A yap)","Ses ortamını güçlendir"];
-var st={mo:0,k:0,d:3,sh:0,sy:0,cm:0,dl:1,mu:0,c:0},tsel={};
+var QD=["Oto",3,4,5,6,8,10];
+var st={mo:0,k:0,d:3,sh:0,sy:0,cm:0,dl:1,mu:0,c:0,qd:0,qt:0},tsel={};
 
 function chips(id,items,key,label,after){
   var el=$(id);el.textContent="";
@@ -171,15 +178,22 @@ function chips(id,items,key,label,after){
   });
 }
 function upd(){
-  var r=st.mo===1,k=KINDS[st.k][0];
-  sh("kl",!r);sh("kinds",!r);sh("fr",!r&&k!=="T2VA");sh("rfw",r);
+  var r=st.mo===1,q=st.mo===2,k=KINDS[st.k][0];
+  sh("kl",!r&&!q);sh("kinds",!r&&!q);sh("fr",!r&&!q&&k!=="T2VA");sh("rfw",r);
   $("f1l").textContent=k==="L2VA"?"Son kare (Picture 1) açıklaması":k==="FL2VA"?"İlk kare (Picture 1) açıklaması":"İlk kare (Picture 1) açıklaması";
-  sh("f2",!r&&k==="FL2VA");sh("f2l",!r&&k==="FL2VA");sh("im2",!r&&k==="FL2VA");
+  var b2=!r&&!q&&k==="FL2VA";sh("f2",b2);sh("f2l",b2);sh("im2",b2);
+  sh("qw",q);sh("im3",q);sh("dul",!q);sh("durs",!q);
+  $("shl").textContent=q?"Klip sayısı (plan boşsa)":"Shot sayısı";
+  $("idl").textContent=q?"Ortak tanım: özne, mekan, ruh hali (her klibe uygulanır)":"Fikir (tek cümle yeterli, Türkçe olabilir)";
+  $("spl").textContent=q?"Klip planı (her satır bir klip; başa süre yazabilirsin: “6 sn: …”)":"Shot planı (isteğe bağlı, her satır bir shot)";
+  $("sp").placeholder=q?"örn. 4 sn: yüksek açı, kadın koltukta kameraya bakar\n7 sn: yan plan, başını çevirir, gülümser\nsüre yazmazsan serbest kalır":"örn. geniş plan, kadın peronda bekler\nyakın plan, mektubu katlar, “Bir sonraki durakta iniyorum.”";
 }
 chips("modes",MODES,"mo",function(x){return x},upd);
 chips("kinds",KINDS,"k",function(x){return x[1]},upd);
 chips("durs",DURS,"d",function(x){return x+" sn"});
 chips("shots",SHOTS,"sh",function(x){return x});
+chips("qdur",QD,"qd",function(x){return x==="Oto"?"Serbest":x+" sn"});
+chips("qtx",["Süreyi metne yaz","Yazma"],"qt",function(x){return x});
 chips("styles",STY,"sy",function(x){return x[0]},function(i){if(!dirty)$("fixed").value=RULES[STY[i][2]]});
 $("fixed").value=RULES.R;$("fixed").addEventListener("input",function(){dirty=true});
 (function(){
@@ -232,15 +246,26 @@ var SYSR="You write prompts for the MiniMax H3 video model in the full-reference
 "detailed_description: 350-500 words (more if dialogue-dense). First 1-2 sentences state the style BEFORE [Shot 1]. Each shot: composition, subject appearance and position, environment and lighting, actions, camera movement, current sound, and where each reference takes effect. Insert labels at first appearance and reuse them; anchors read 'the shot begins from <Picture 1>'. A speaking subject: '<Subject 2> (S1) turns and says, <d>[English] ...</d>' (off-screen speakers keep the form and say off-screen). Verbal cues inside directly reused BGM use <Audio N> as source, no (Sx). If only timbre or delivery is referenced, do not carry the original dialogue. Use [unclear] for unintelligible reused speech; plain punctuation only.\n"+
 "Audio relations go only in the matching section: ambience in overall_soundscape, score in non_diegetic_music, e.g. '<Audio 2> is directly reused as the complete audience-only score.'";
 
+var SYSQ="You write prompts for a video-generation queue. Every paragraph you output becomes a separate video request, and each request is generated independently with no memory of the others. Therefore every clip paragraph must be fully self-contained: repeat the complete subject description (copy it word for word in every paragraph), the setting, the lighting and the visual style. The clips share one continuous world, wardrobe and look so they can be edited together.\n"+
+"Output format: plain English, no markdown, no field names, no labels such as 'Clip 1' or 'Shot 1', no timestamps, no line breaks inside a paragraph, exactly one blank line between paragraphs. Nothing else.\n"+
+"Each paragraph is one flowing block in this order: subject identity and clothing; setting; shot type and framing; the action in time order, sized to the clip's duration (a short clip gets one simple action, a longer clip may get two or three beats); camera motion written as type + amplitude + speed, e.g. 'The camera pushes in with small amplitude at slow speed' (types: Zoom In/Out, Push In/Pull Out, Pan, Truck, Tilt, Pedestal, Arc Shot, Tracking Shot, Static Shot, Shake Slightly, POV; omit medium and normal amplitude or speed); lighting and visual style; sound (ambience and physical action sounds). Every detail must be visible or audible. Subjects must be adults. Keep content tasteful.";
+var QKEEP="\n\nKeep the format: separate self-contained plain paragraphs, one blank line between paragraphs, no line breaks inside a paragraph, no field names or labels, the same number of clips, and each clip's duration unless the instruction changes it. Change only what the instruction implies. Output ONLY the revised prompt, no preface.";
 function nsh(){var c=$("sp").value.split("\n").filter(function(x){return x.trim()}).length;return c||SHOTS[st.sh]}
 function instr(){
   var k=KINDS[st.k][0],S=DURS[st.d].toFixed(2),N=typeof nsh()==="number"?nsh():1;
-  if(st.mo===1||k==="T2VA")return"";
+  if(st.mo!==0||k==="T2VA")return"";
   if(k==="I2VA")return"For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.";
   if(k==="FL2VA")return"How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot "+N+") aligns with the "+S+"-second mark of the target video.";
   return"How the reference pictures align with the target video — <Picture 1> (from [Shot "+N+"]) aligns with the "+S+"-second mark of the target video.";
 }
 function lint(t,mo,dur){
+  if(mo===2){
+    var qw=[];
+    if(/\[Shot \d|integrated_multimodal|overall_soundscape|non_diegetic|At \d\d:\d\d/.test(t))qw.push("Kuyruk modunda alan adı, [Shot] veya zaman damgası olmamalı");
+    if(t.split(/\n\s*\n/).some(function(x){return /\n/.test(x.trim())}))qw.push("Bir klip birden fazla satıra bölünmüş");
+    if(/\n\s*\n\s*\n/.test(t))qw.push("Klipler arasında tek boş satır olmalı");
+    return qw;
+  }
   var w=[],F=mo===1?["subject_definitions","summary","retention_analysis","detailed_description","overall_soundscape","non_diegetic_music"]:["integrated_multimodal_description","overall_soundscape","non_diegetic_music"];
   F.forEach(function(f){if(t.indexOf(f+":")<0)w.push("Eksik alan: "+f)});
   if(/\[Shot 1\]\s*At \d/.test(t))w.push("Shot 1’de zaman damgası olmamalı");
@@ -311,19 +336,30 @@ function card(item,inHist){
   var pre=mk("pre",null,item.text);d.appendChild(pre);
   var lt=mk("div","lint");d.appendChild(lt);
   var r=mk("div","row");
-  var cp=mk("button","btn","Kopyala");cp.onclick=function(){copy(item.text,cp)};
+  var cp=mk("button","btn",item.mo===2?"Hepsini kopyala":"Kopyala");cp.onclick=function(){copy(item.text,cp)};
   var ed=mk("button","btn","Düzenle");
   var fx=mk("button","btn ac","Hataları düzelt");
   var nx=mk("button","btn","Sonraki sahne");
-  r.appendChild(cp);r.appendChild(ed);r.appendChild(fx);r.appendChild(nx);
+  r.appendChild(cp);r.appendChild(ed);r.appendChild(fx);if(item.mo!==2)r.appendChild(nx);
   if(inHist){var del=mk("button","btn","Sil");del.onclick=function(){hist=hist.filter(function(h){return h.id!==item.id});saveH();renderHist()};r.appendChild(del)}
   d.appendChild(r);
+  var qc=mk("div","row");qc.style.marginTop="8px";
+  function renderQC(){
+    qc.textContent="";
+    item.text.split(/\n\s*\n/).forEach(function(pp,i){
+      var b=mk("button","chip q","Klip "+(i+1)+" kopyala");
+      b.onclick=function(){copy(pp.trim(),b)};
+      qc.appendChild(b);
+    });
+  }
+  if(item.mo===2)d.appendChild(qc);
   var w=[];
   function showL(){
     w=lint(item.text,item.mo,item.dur);
     lt.className="lint"+(w.length?" w":"");
     lt.textContent=w.length?"⚠ "+w.join(" · "):"✓ Format kontrolü temiz";
     fx.style.display=w.length?"":"none";
+    if(item.mo===2)renderQC();
   }
   showL();
   var box=mk("div","edit"),qr=mk("div","row");
@@ -338,7 +374,7 @@ function card(item,inHist){
     cmd=(cmd||inp.value).trim();if(!cmd)return;
     ap.disabled=fx.disabled=true;ms.textContent="Düzenleniyor…";
     var p="Here is a MiniMax H3 video prompt ("+item.model+"):\n\n"+item.text+"\n\nRewrite it applying this instruction (the user may write in Turkish): "+cmd+
-      "\n\nKeep the exact format: the first alignment line if present, all field names, [Shot N] and 'At MM:SS.mmm' timing, (Sx) IDs, <d>[Language] ...</d> tags, reference labels. Keep the video duration of "+item.dur+" seconds. Change only what the instruction implies. Output ONLY the revised prompt, no preface.";
+      (item.mo===2?QKEEP:"\n\nKeep the exact format: the first alignment line if present, all field names, [Shot N] and 'At MM:SS.mmm' timing, (Sx) IDs, <d>[Language] ...</d> tags, reference labels. Keep the video duration of "+item.dur+" seconds. Change only what the instruction implies. Output ONLY the revised prompt, no preface.");
     try{
       var t=(await llm(p)).trim();
       item.text=t;pre.textContent=t;
@@ -427,6 +463,7 @@ function pick(cb,btn){
 }
 $("im1").onclick=function(){pick(function(t){$("f1").value=t},$("im1"))};
 $("im2").onclick=function(){pick(function(t){$("f2").value=t},$("im2"))};
+$("im3").onclick=function(){pick(function(t){$("idea").value=t},$("im3"))};
 (function(){
   var b=mk("button","chip q","📷 Görselden Subject ekle");$("rb").appendChild(b);
   b.onclick=function(){pick(function(t){var v=$("rf").value.replace(/\s+$/,"");$("rf").value=(v?v+"\n":"")+"Subject: "+t},b)};
@@ -452,7 +489,55 @@ renderChars();
 
 function split(text){return text.split(/^\s*={3,}\s*$/m).map(function(s){return s.trim()}).filter(Boolean)}
 var go=$("go"),msg=$("msg");
+async function goQueue(){
+  var idea=$("idea").value.trim();
+  var plan=$("sp").value.split("\n").map(function(x){return x.trim()}).filter(Boolean).map(function(x){
+    var m=x.match(/^(\d+(?:[.,]\d+)?)\s*(?:saniye|sec|sn|s)\b\s*[:|\-–.]?\s*([\s\S]*)$/i);
+    return m?{t:m[2],d:parseFloat(m[1].replace(",","."))}:{t:x,d:null};
+  });
+  if(!idea&&!plan.length){msg.textContent="Ortak tanım veya klip planı yaz.";return}
+  if(needKey()){msg.textContent=NOKEY;return}
+  var qd=QD[st.qd],ns=SHOTS[st.sh],n=COUNTS[st.c],sty=STY[st.sy],cam=CAMS[st.cm][1],dl=DLG[st.dl][1],fixed=$("fixed").value.trim(),suf=$("qs").value.trim();
+  var cht=chars.filter(function(c,i){return csel[i]}).map(function(c){return c.n+": "+c.d}).join("\n");
+  var lines=plan.map(function(c,i){
+    var d=c.d!=null?c.d:(typeof qd==="number"?qd:null);
+    return (i+1)+") duration: "+(d!=null?d+" seconds":"free, choose 3 to 10 seconds that fits the action")+" - "+(c.t||"you decide the action");
+  }).join("\n");
+  var prompt=SYSQ+
+    (plan.length?"\n\nClip plan (one clip per line, in order; expand each line into one detailed self-contained paragraph and keep any camera moves or lines the user gave; clips may have different durations):\n"+lines
+      :"\n\nClip count: "+(typeof ns==="number"?"exactly "+ns:"choose 2 to 4")+". Split the idea into that many consecutive clips. "+(typeof qd==="number"?"Each clip lasts "+qd+" seconds.":"Choose each clip's duration yourself (between 3 and 10 seconds) to fit its action; durations may differ."))+
+    (st.qt===0?"\nEnd every paragraph with its duration as a short sentence, e.g. 'Duration: 6 seconds.'":"\nDo not mention the duration in the text.")+
+    (suf?"\nAfter that, end every paragraph with this exact sentence: "+suf:"")+
+    (sty[1]?"\nStyle to apply in every clip: "+sty[1]:"")+
+    (sty[2]!=="R"?"\nIMPORTANT: this is NOT live-action. Describe everything in the chosen medium (animated, drawn, painted or clay); do not use the words live-action, photorealistic, photograph or real skin pores; camera moves stay as a virtual camera.":"")+
+    (cam?"\nPreferred camera motion: "+cam+".":"")+
+    "\nDialogue: "+(dl?"include spoken lines in "+dl+" using <d>["+dl+"] ...</d>; lines the user wrote in quotes must be kept verbatim.":"none; no speakers.")+
+    "\nMusic: "+(st.mu===1?"do not mention any music.":"mention fitting background music briefly at the end of the sound part.")+
+    (cht?"\nRecurring characters (copy each description identically in every clip where they appear):\n"+cht:"")+
+    (fixed?"\nAlways respect these fixed rules naturally: "+fixed:"")+
+    "\n\nShared description for every clip (may be Turkish): "+(idea||"(none, follow the clip plan)")+
+    "\n\nWrite "+n+" distinct variation(s) of the whole queue (vary setting details, action or camera while keeping the idea). Output ONLY the paragraphs. If more than one variation, separate the variations with a line containing only =====";
+  go.disabled=true;
+  var t0=Date.now(),tm=setInterval(function(){msg.textContent="Üretiliyor… "+Math.round((Date.now()-t0)/1000)+" sn"},500);
+  msg.textContent="Üretiliyor…";
+  try{
+    var parts=split(await llm(prompt));
+    var items=parts.map(function(p,i){
+      var paras=p.replace(/\r/g,"").split(/\n\s*\n/).map(function(x){return x.replace(/^\s*(?:clip|shot|klip)\s*\d+\s*[:.\-–)]\s*/i,"").replace(/\s*\n\s*/g," ").trim()}).filter(Boolean);
+      return{id:Date.now()+"-"+i,text:paras.join("\n\n"),idea:idea||plan.length+" klip",model:"Kuyruk · "+paras.length+" klip"+(sty[1]?" · "+sty[0]:""),mo:2,dur:null};
+    });
+    items.slice().reverse().forEach(function(it){hist.unshift(it)});
+    saveH();
+    var out=$("out");out.textContent="";
+    items.forEach(function(it){out.appendChild(card(it,false))});
+    msg.textContent="Hazır ve geçmişe kaydedildi.";
+  }catch(e){
+    msg.textContent="Hata: "+e.message;
+  }
+  clearInterval(tm);go.disabled=false;
+}
 go.onclick=async function(){
+  if(st.mo===2)return goQueue();
   var idea=$("idea").value.trim(),ref=st.mo===1,k=KINDS[st.k][0];
   if(!idea){msg.textContent="Önce bir fikir yaz.";return}
   if(needKey()){msg.textContent=NOKEY;return}
