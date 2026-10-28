@@ -78,6 +78,9 @@ textarea.sm{min-height:60px}
 <div class="lb">Klip süresi (plana satır başına “6 sn: …” yazarak klip klip de belirleyebilirsin)</div><div class="row" id="qdur"></div>
 <div class="lb">Süre bilgisi</div><div class="row" id="qtx"></div>
 <label for="qs">Her klibin sonuna eklenen cümle (isteğe bağlı)</label><input type="text" id="qs" value="Vertical 9:16.">
+<div class="lb">Başlangıç karesi promptu (Krea 2)</div><div class="row" id="qfr"></div>
+<div class="lb">Referans rolü (Krea 2 “Inject Reference Images”)</div><div class="row" id="qrf"></div>
+<div class="lb">Kare oranı</div><div class="row" id="qar"></div>
 </div>
 <div class="lb">Stil</div><div class="row" id="styles"></div>
 <div class="lb">Kamera eğilimi</div><div class="row" id="cams"></div>
@@ -166,8 +169,8 @@ var STY=[["Yok","","R"],
 ["Pixel art","Pixel art animation, limited color palette, crisp square pixels, 16-bit game look.","P"]];
 var TT=["reference generation","keyframe completion","video editing","video continuation","audio reuse","audio reference"];
 var QUICK=["Kamera hareketini zenginleştir","Daha kısa yaz","Daha detaylı yaz","Müziği kaldır (N/A yap)","Ses ortamını güçlendir"];
-var QD=["Oto",3,4,5,6,8,10];
-var st={mo:0,k:0,d:3,sh:0,sy:0,cm:0,dl:1,mu:0,c:0,qd:0,qt:0},tsel={};
+var QD=["Oto",3,4,5,6,8,10],QAR=["9:16","2:3","3:4","16:9","1:1"];
+var st={mo:0,k:0,d:3,sh:0,sy:0,cm:0,dl:1,mu:0,c:0,qd:0,qt:0,qf:1,qr:0,qa:0},tsel={};
 
 function chips(id,items,key,label,after){
   var el=$(id);el.textContent="";
@@ -194,6 +197,9 @@ chips("durs",DURS,"d",function(x){return x+" sn"});
 chips("shots",SHOTS,"sh",function(x){return x});
 chips("qdur",QD,"qd",function(x){return x==="Oto"?"Serbest":x+" sn"});
 chips("qtx",["Süreyi metne yaz","Yazma"],"qt",function(x){return x});
+chips("qfr",["Kapalı","Açık"],"qf",function(x){return x});
+chips("qrf",["Kişi / nesne (hepsi kimlik kaynağı)","Ana özne / mekan (ilk görsel), sonrası kişi / nesne"],"qr",function(x){return x});
+chips("qar",QAR,"qa",function(x){return x});
 chips("styles",STY,"sy",function(x){return x[0]},function(i){if(!dirty)$("fixed").value=RULES[STY[i][2]]});
 $("fixed").value=RULES.R;$("fixed").addEventListener("input",function(){dirty=true});
 (function(){
@@ -352,7 +358,18 @@ function card(item,inHist){
       qc.appendChild(b);
     });
   }
-  if(item.mo===2)d.appendChild(qc);
+  var fb=mk("div");fb.style.marginTop="12px";
+  function renderFR(){
+    fb.textContent="";
+    if(!item.fr)return;
+    fb.appendChild(mk("b",null,"Kare promptları · Krea 2"));
+    fb.appendChild(mk("pre",null,item.fr));
+    var fr=mk("div","row");
+    var fa=mk("button","btn","Kareleri kopyala");fa.onclick=function(){copy(item.fr,fa)};fr.appendChild(fa);
+    item.fr.split(/\n\s*\n/).forEach(function(pp,i){var b=mk("button","chip q","Kare "+(i+1)+" kopyala");b.onclick=function(){copy(pp.trim(),b)};fr.appendChild(b)});
+    fb.appendChild(fr);
+  }
+  if(item.mo===2){d.appendChild(qc);renderFR();d.appendChild(fb)}
   var w=[];
   function showL(){
     w=lint(item.text,item.mo,item.dur);
@@ -499,6 +516,10 @@ async function goQueue(){
   if(needKey()){msg.textContent=NOKEY;return}
   var qd=QD[st.qd],ns=SHOTS[st.sh],n=COUNTS[st.c],sty=STY[st.sy],cam=CAMS[st.cm][1],dl=DLG[st.dl][1],fixed=$("fixed").value.trim(),suf=$("qs").value.trim();
   var cht=chars.filter(function(c,i){return csel[i]}).map(function(c){return c.n+": "+c.d}).join("\n");
+  var fon=st.qf===1,far=QAR[st.qa];
+  var frameRules="Start-frame prompts: after the clips, also write one Krea 2 start-frame image prompt for each clip, same order and same count. Krea 2 only reads a reference image as direction and then generates a fresh image, so each frame prompt must describe the whole target frame itself: one flowing English paragraph of 3 to 6 sentences in this order: subject (reuse the exact identity and clothing wording from the clip), context and setting, composition (camera angle, framing and shot type of the clip's first moment), lighting, style, and finish with the aspect ratio in words, e.g. 'vertical "+far+" composition'. It is a frozen first frame: describe the pose, not motion, and use no camera-movement words, sound or duration. No labels, no line breaks inside a paragraph. "+
+    (st.qr===0?"Reference role: the attached reference image(s) are people or objects that supply identity. Refer to the subject as 'the person from the reference image' once, then still describe hair, face and outfit with the same wording as the reference; the setting, pose and framing come entirely from the prompt."
+    :"Reference role: the first reference image is the main subject or landscape (the scene to keep) and any later images are people or objects to place in it. Refer to 'the scene from the first reference image' and keep its described elements identical; the prompt states only the new framing, pose and placement.");
   var lines=plan.map(function(c,i){
     var d=c.d!=null?c.d:(typeof qd==="number"?qd:null);
     return (i+1)+") duration: "+(d!=null?d+" seconds":"free, choose 3 to 10 seconds that fits the action")+" - "+(c.t||"you decide the action");
@@ -515,22 +536,25 @@ async function goQueue(){
     "\nMusic: "+(st.mu===1?"do not mention any music.":"mention fitting background music briefly at the end of the sound part.")+
     (cht?"\nRecurring characters (copy each description identically in every clip where they appear):\n"+cht:"")+
     (fixed?"\nAlways respect these fixed rules naturally: "+fixed:"")+
+    (fon?"\n\n"+frameRules:"")+
     "\n\nShared description for every clip (may be Turkish): "+(idea||"(none, follow the clip plan)")+
-    "\n\nWrite "+n+" distinct variation(s) of the whole queue (vary setting details, action or camera while keeping the idea). Output ONLY the paragraphs. If more than one variation, separate the variations with a line containing only =====";
+    "\n\nWrite "+n+" distinct variation(s) of the whole queue (vary setting details, action or camera while keeping the idea). "+(fon?"Output the clip paragraphs first, then a line containing only #####, then the start-frame prompts in the same order. Output nothing else.":"Output ONLY the paragraphs.")+" If more than one variation, separate the variations with a line containing only =====. The ##### line and the frame prompts belong inside each variation.";
   go.disabled=true;
   var t0=Date.now(),tm=setInterval(function(){msg.textContent="Üretiliyor… "+Math.round((Date.now()-t0)/1000)+" sn"},500);
   msg.textContent="Üretiliyor…";
   try{
     var parts=split(await llm(prompt));
+    var cleanP=function(txt){return txt.replace(/\r/g,"").split(/\n\s*\n/).map(function(x){return x.replace(/^\s*(?:clip|shot|klip|frame|kare)\s*\d+\s*[:.\-–)]\s*/i,"").replace(/\s*\n\s*/g," ").trim()}).filter(Boolean)};
     var items=parts.map(function(p,i){
-      var paras=p.replace(/\r/g,"").split(/\n\s*\n/).map(function(x){return x.replace(/^\s*(?:clip|shot|klip)\s*\d+\s*[:.\-–)]\s*/i,"").replace(/\s*\n\s*/g," ").trim()}).filter(Boolean);
-      return{id:Date.now()+"-"+i,text:paras.join("\n\n"),idea:idea||plan.length+" klip",model:"Kuyruk · "+paras.length+" klip"+(sty[1]?" · "+sty[0]:""),mo:2,dur:null};
+      var hv=p.split(/^\s*#{3,}\s*$/m),paras=cleanP(hv[0]),frs=hv[1]?cleanP(hv[1]):[];
+      return{id:Date.now()+"-"+i,text:paras.join("\n\n"),fr:frs.join("\n\n"),idea:idea||plan.length+" klip",model:"Kuyruk · "+paras.length+" klip"+(frs.length?" + kare":"")+(sty[1]?" · "+sty[0]:""),mo:2,dur:null};
     });
+    var bad=fon&&items.some(function(it){return it.fr.split(/\n\s*\n/).filter(Boolean).length!==it.text.split(/\n\s*\n/).length});
     items.slice().reverse().forEach(function(it){hist.unshift(it)});
     saveH();
     var out=$("out");out.textContent="";
     items.forEach(function(it){out.appendChild(card(it,false))});
-    msg.textContent="Hazır ve geçmişe kaydedildi.";
+    msg.textContent=bad?"Hazır, ama kare sayısı klip sayısıyla uyuşmuyor. Gerekirse yeniden üret.":"Hazır ve geçmişe kaydedildi.";
   }catch(e){
     msg.textContent="Hata: "+e.message;
   }
