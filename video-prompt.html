@@ -124,7 +124,8 @@ var PROV=[
  {n:"Gemini (ücretsiz)",k:"gemini",m:"gemini-flash-latest",h:"Ücretsiz anahtar: aistudio.google.com/apikey adresine Google hesabınla gir, “Create API key”e dokun."},
  {n:"Groq (ücretsiz)",k:"groq",m:"llama-3.3-70b-versatile",h:"Ücretsiz anahtar: console.groq.com/keys adresinden al."},
  {n:"LM Studio (yerel)",k:"lmstudio",m:"local-model",h:"LM Studio’da Developer sekmesinden sunucuyu başlat, CORS’u aç. Model adını sunucu ekranındaki model kimliğinden kopyala. Anahtar gerekmez."},
- {n:"Claude API (ücretli)",k:"anthropic",m:"claude-sonnet-5-5",h:"Anahtar: console.anthropic.com. Kullanım ücretlidir."}
+ {n:"Claude API (ücretli)",k:"anthropic",m:"claude-sonnet-5-5",h:"Anahtar: console.anthropic.com. Kullanım ücretlidir."},
+ {n:"OpenRouter",k:"openrouter",m:"google/gemini-2.5-flash",h:"Anahtar: openrouter.ai/keys. Model alanına openrouter.ai/models sayfasındaki model kimliğini aynen yaz (örn. google/gemini-2.5-flash). Görselden doldurma kullanacaksan görsel destekleyen bir model seç."}
 ];
 var CK="pu_cfg_v1",HK="vp_hist_v1";
 function jget(k,d){try{var v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}}
@@ -305,6 +306,9 @@ async function llm(prompt,img){
   }else if(p.k==="lmstudio"){
     url=((cfg.urls&&cfg.urls[p.k])||"http://localhost:1234/v1")+"/chat/completions";
     opt={method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(key||"lm-studio")},body:JSON.stringify({model:model,messages:[{role:"user",content:msgc(prompt,img)}],temperature:0.8})};
+  }else if(p.k==="openrouter"){
+    url="https://openrouter.ai/api/v1/chat/completions";
+    opt={method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},body:JSON.stringify({model:model,messages:[{role:"user",content:msgc(prompt,img)}]})};
   }else if(p.k==="groq"){
     url="https://api.groq.com/openai/v1/chat/completions";
     opt={method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},body:JSON.stringify({model:model,messages:[{role:"user",content:msgc(prompt,img)}]})};
@@ -323,7 +327,7 @@ async function llm(prompt,img){
   }
   var t="";
   if(p.k==="gemini"){var ps=j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts||[];t=ps.map(function(x){return x.text||""}).join("")}
-  else if(p.k==="groq"||p.k==="lmstudio"){t=j&&j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content||""}
+  else if(p.k==="groq"||p.k==="lmstudio"||p.k==="openrouter"){t=j&&j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content||""}
   else{t=(j&&j.content||[]).map(function(x){return x.text||""}).join("")}
   if(!t.trim())throw new Error("Boş cevap geldi");
   return t;
